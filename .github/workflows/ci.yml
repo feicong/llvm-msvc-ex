@@ -24,8 +24,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref_name }}-${{ github.sha }}
-  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   prepare:
@@ -93,12 +93,14 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Use static MSVC runtime (MultiThreaded) for standalone distribution
+          # without requiring the Visual C++ Redistributable on end-user machines.
           cmake \
             -S llvm \
             -B build/ollvm \
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX="${GITHUB_WORKSPACE//\\//}/install" \
+            -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/install" \
             -DCMAKE_CXX_FLAGS="/utf-8" \
             -DCMAKE_C_FLAGS="/utf-8" \
             -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded \
