@@ -1,0 +1,242 @@
+# Copyright (c) 2025-2026 fei_cong(https://github.com/feicong/feicong-course)
+
+name: ollvm
+
+on:
+  push:
+    branches:
+      - 'dev'
+      - 'llvm-*.x'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 目标Release标签（留空则使用"latest"）
+        required: false
+        default: ""
+        type: string
+      upload:
+        description: 是否上传到Release
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    name: Prepare release metadata
+    runs-on: ubuntu-24.04
+    outputs:
+      release_tag: ${{ steps.vars.outputs.release_tag }}
+      release_name: ${{ steps.vars.outputs.release_name }}
+      upload: ${{ steps.vars.outputs.upload }}
+    steps:
+      - name: Compute variables
+        id: vars
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          release_tag='latest'
+          upload='true'
+
+          if [ '${{ github.event_name }}' = 'workflow_dispatch' ]; then
+            if [ -n '${{ inputs.release_tag }}' ]; then
+              release_tag='${{ inputs.release_tag }}'
+            fi
+            upload='${{ inputs.upload }}'
+          fi
+
+          release_name="OLLVM Windows Toolchain (${release_tag})"
+
+          {
+            echo "release_tag=$release_tag"
+            echo "release_name=$release_name"
+            echo "upload=$upload"
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build Windows OLLVM
+    needs: prepare
+    runs-on: windows-2022
+    timeout-minutes: 360
+    env:
+      LLVM_TARGETS_TO_BUILD: AArch64;X86
+      LLVM_ENABLE_PROJECTS: clang;lld;lldb
+    steps:
+      - name: Checkout OLLVM source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install Ninja
+        shell: bash
+        run: |
+          set -euo pipefail
+          choco install ninja --yes --no-progress
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Configure LLVM
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Use static MSVC runtime (MultiThreaded) for standalone distribution
+          # without requiring the Visual C++ Redistributable on end-user machines.
+          cmake \
+            -S llvm \
+            -B build/ollvm \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/install" \
+            -DCMAKE_CXX_FLAGS="/utf-8" \
+            -DCMAKE_C_FLAGS="/utf-8" \
+            -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded \
+            -DLLVM_TARGETS_TO_BUILD="${LLVM_TARGETS_TO_BUILD}" \
+            -DLLVM_ENABLE_PROJECTS="${LLVM_ENABLE_PROJECTS}" \
+            -DLLVM_OBFUSCATION_LINK_INTO_TOOLS=ON \
+            -DLLVM_ENABLE_RPMALLOC=ON \
+            -DLLVM_INCLUDE_TESTS=OFF \
+            -DLLVM_BUILD_TESTS=OFF \
+            -DLLVM_INCLUDE_EXAMPLES=OFF \
+            -DLLVM_INCLUDE_BENCHMARKS=OFF \
+            -DLLVM_BUILD_BENCHMARKS=OFF \
+            -DLLVM_BUILD_DOCS=OFF \
+            -DLLVM_ENABLE_BACKTRACES=OFF \
+            -DLLVM_ENABLE_ASSERTIONS=OFF \
+            -DLLVM_ENABLE_LIBXML2=OFF \
+            -DLLVM_ENABLE_ZLIB=OFF \
+            -DLLVM_ENABLE_ZSTD=OFF \
+            -DLLVM_ENABLE_TERMINFO=OFF \
+            -DLLVM_ENABLE_LIBEDIT=OFF \
+            -DLLDB_ENABLE_PYTHON=OFF \
+            -DBUILD_SHARED_LIBS=OFF
+
+      - name: Build LLVM
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake --build build/ollvm --parallel
+
+      - name: Install LLVM
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake --install build/ollvm
+
+      - name: Package artifacts
+        id: package
+        shell: pwsh
+        run: |
+          $installDir = Join-Path $env:GITHUB_WORKSPACE "install"
+          $archiveName = "ollvm-windows-x86_64-${{ needs.prepare.outputs.release_tag }}.zip"
+          $archivePath = Join-Path $env:GITHUB_WORKSPACE $archiveName
+
+          # Remove PDB files to reduce archive size
+          $pdbFiles = Get-ChildItem -Path $installDir -Recurse -Filter "*.pdb"
+          if ($pdbFiles.Count -gt 0) {
+            Write-Host "Removing $($pdbFiles.Count) PDB debug files"
+            $pdbFiles | Remove-Item -Force
+          }
+
+          Compress-Archive -Path $installDir -DestinationPath $archivePath -Force
+          Write-Host "Created archive: $archivePath"
+          "archive_path=$archivePath" >> $env:GITHUB_OUTPUT
+          "archive_name=$archiveName" >> $env:GITHUB_OUTPUT
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ollvm-windows
+          path: ${{ steps.package.outputs.archive_path }}
+          if-no-files-found: error
+
+  publish:
+    name: Publish release assets
+    if: ${{ needs.prepare.outputs.upload == 'true' }}
+    needs:
+      - prepare
+      - build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Update release tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f "${{ needs.prepare.outputs.release_tag }}" "${{ github.sha }}"
+          git push origin "refs/tags/${{ needs.prepare.outputs.release_tag }}" --force
+
+      - name: Generate release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            printf '%s\n' \
+              "## OLLVM Windows Toolchain" \
+              "" \
+              "分支：\`${{ github.ref_name }}\`" \
+              "提交：\`${{ github.sha }}\`" \
+              "Release标签：\`${{ needs.prepare.outputs.release_tag }}\`" \
+              "" \
+              "### 包含组件" \
+              "" \
+              "- \`clang\` / \`clang++\` — 带混淆功能的C/C++编译器" \
+              "- \`lld\` / \`lld-link\` — 链接器" \
+              "- \`lldb\` — 调试器" \
+              "" \
+              "### 支持的编译目标" \
+              "" \
+              "- \`X86\` (x86/x86_64)" \
+              "- \`AArch64\` (ARM64)" \
+              "" \
+              "### 使用示例" \
+              "" \
+              '```batch' \
+              'set PATH=C:\ollvm\bin;%PATH%' \
+              'clang++ -O2 -mllvm -vm-fla -mllvm -vm-fla-level=7 -mllvm -fla -mllvm -sub -mllvm -bcf your_file.cpp -o your_file.exe' \
+              '```' \
+              "" \
+              "### 混淆参数参考" \
+              "" \
+              '```' \
+              '-mllvm -data-obfus -mllvm -const-obfus -mllvm -string-obfus -mllvm -ind-call' \
+              '-mllvm -vm-fla -mllvm -vm-fla-level=7 -mllvm -fla -mllvm -sub -mllvm -bcf' \
+              '-mllvm -x-fla-enh -mllvm -x-combine' \
+              '```'
+          } > release-notes.md
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.release_tag }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ needs.prepare.outputs.release_name }}
+          body_path: release-notes.md
+          files: release-assets/*
+          overwrite_files: true
+          make_latest: true
