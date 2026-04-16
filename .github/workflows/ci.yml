@@ -101,8 +101,8 @@ jobs:
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/install" \
-            -DCMAKE_CXX_FLAGS="/utf-8" \
-            -DCMAKE_C_FLAGS="/utf-8" \
+            -DCMAKE_CXX_FLAGS="-utf-8" \
+            -DCMAKE_C_FLAGS="-utf-8" \
             -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded \
             -DLLVM_TARGETS_TO_BUILD="${LLVM_TARGETS_TO_BUILD}" \
             -DLLVM_ENABLE_PROJECTS="${LLVM_ENABLE_PROJECTS}" \
