@@ -188,8 +188,8 @@ void GlobalsEncryption::process(Module &M) {
       IRB.CreateStore(IRB.getInt32(K), Key);
       IRB.CreateCall(FunctionCallee(DecFunc),
                      {
-                         IRB.CreateBitOrPointerCast(Copy, IRB.getInt8PtrTy()),
-                         IRB.CreateBitOrPointerCast(Key, IRB.getInt8PtrTy()),
+                         IRB.CreateBitOrPointerCast(Copy, PointerType::getUnqual(IRB.getContext())),
+                         IRB.CreateBitOrPointerCast(Key, PointerType::getUnqual(IRB.getContext())),
                          IRB.getInt64(Size),
                          IRB.getInt64(KEY_LEN),
                      });

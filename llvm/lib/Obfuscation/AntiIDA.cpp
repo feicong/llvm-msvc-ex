@@ -15,6 +15,7 @@
 
 #include <Utils.h>
 #include <iomanip>
+#include <random>
 #include <regex>
 #include <sstream>
 
@@ -33,7 +34,7 @@ PreservedAnalyses AntiIDAPass::run(Module &M, ModuleAnalysisManager &) {
     if(F.getName().starts_with("??") || F.getName().contains("std@")) {
       continue;
     }
-    if (F.hasCXXEH() || F.hasCXXSEH()) {
+    if (F.hasPersonalityFn()) {
       continue;
     }
     if (!toObfuscate(RunIDAPass, &F, "ida-obfus"))

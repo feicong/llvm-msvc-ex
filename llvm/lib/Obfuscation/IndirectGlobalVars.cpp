@@ -18,6 +18,7 @@
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/Utils/ModuleUtils.h"
 
 
 #include <cstdint>
@@ -79,14 +80,14 @@ IndirectGlobalVariable::get_indirect_global_variables(Function &F,
   std::vector<Constant *> Elements;
   for (const auto g_var : GlobalVariables) {
     Constant *ce =
-        ConstantExpr::getBitCast(g_var, Type::getInt8PtrTy(F.getContext()));
+        ConstantExpr::getBitCast(g_var, PointerType::getUnqual(F.getContext()));
     ce = ConstantExpr::getGetElementPtr(Type::getInt8Ty(F.getContext()), ce,
                                         EncKey);
     Elements.push_back(ce);
   }
 
   ArrayType *a_ty =
-      ArrayType::get(Type::getInt8PtrTy(F.getContext()), Elements.size());
+      ArrayType::get(PointerType::getUnqual(F.getContext()), Elements.size());
   Constant *CA = ConstantArray::get(a_ty, ArrayRef<Constant *>(Elements));
   GV =
       new GlobalVariable(*F.getParent(), a_ty, false,

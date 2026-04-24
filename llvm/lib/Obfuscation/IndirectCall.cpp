@@ -72,12 +72,12 @@ GlobalVariable *IndirectCallPass::getIndirectCallees(Function &F,
   std::vector<Constant *> Elements;
 
   for (auto *Callee : CalleeList) {
-    Constant *CE = ConstantExpr::getBitCast(Callee, Type::getInt8PtrTy(Ctx));
+    Constant *CE = ConstantExpr::getBitCast(Callee, PointerType::getUnqual(Ctx));
     CE = ConstantExpr::getGetElementPtr(Type::getInt8Ty(Ctx), CE, EncKey);
     Elements.push_back(CE);
   }
 
-  ArrayType *ArrTy = ArrayType::get(Type::getInt8PtrTy(Ctx), Elements.size());
+  ArrayType *ArrTy = ArrayType::get(PointerType::getUnqual(Ctx), Elements.size());
   Constant *CA = ConstantArray::get(ArrTy, ArrayRef<Constant *>(Elements));
   GV =
       new GlobalVariable(*F.getParent(), ArrTy, false,

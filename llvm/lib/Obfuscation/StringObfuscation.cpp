@@ -265,12 +265,13 @@ Function *StringEncryption::buildDecryptFunction(
   LLVMContext &Ctx = M->getContext();
   IRBuilder<> IRB(Ctx);
   FunctionType *FuncTy = FunctionType::get(
-      Type::getInt32Ty(Ctx), {IRB.getInt8PtrTy(), IRB.getInt8PtrTy()}, false);
+      Type::getInt32Ty(Ctx), {PointerType::getUnqual(Ctx), PointerType::getUnqual(Ctx)}, false);
   Function *DecFunc = Function::Create(
       FuncTy, GlobalValue::PrivateLinkage,
       "goron_decrypt_string_" + Twine::utohexstr(Entry->ID), M);
   
-  DecFunc->setAnnotationStrings("combine_func[dec_str]");
+  // setAnnotationStrings is llvm-msvc-specific; skip on stock LLVM
+  // DecFunc->setAnnotationStrings("combine_func[dec_str]");
 
   auto ArgIt = DecFunc->arg_begin();
   Argument *PlainString = ArgIt; // output
@@ -460,7 +461,7 @@ bool StringEncryption::processConstantStringUse(Function *F) {
                 IRBuilder<> IRB(InsertPoint);
 
                 Value *OutBuf =
-                    IRB.CreateBitCast(Entry->DecGV, IRB.getInt8PtrTy());
+                    IRB.CreateBitCast(Entry->DecGV, PointerType::getUnqual(IRB.getContext()));
                 Value *Data = IRB.CreateInBoundsGEP(
                     EncryptedStringTable->getValueType(), EncryptedStringTable,
                     {IRB.getInt32(0), IRB.getInt32(Entry->Offset)});
@@ -500,7 +501,7 @@ bool StringEncryption::processConstantStringUse(Function *F) {
                 IRBuilder<> IRB(&Inst);
 
                 Value *OutBuf =
-                    IRB.CreateBitCast(Entry->DecGV, IRB.getInt8PtrTy());
+                    IRB.CreateBitCast(Entry->DecGV, PointerType::getUnqual(IRB.getContext()));
                 Value *Data = IRB.CreateInBoundsGEP(
                     EncryptedStringTable->getValueType(), EncryptedStringTable,
                     {IRB.getInt32(0), IRB.getInt32(Entry->Offset)});

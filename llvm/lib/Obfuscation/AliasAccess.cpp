@@ -27,6 +27,7 @@
 #include <cstring>
 #include <iomanip>
 #include <map>
+#include <random>
 #include <regex>
 #include <set>
 #include <sstream>
@@ -84,7 +85,7 @@ void AliasAccess::process(Function &F) {
 
   std::vector<AllocaInst *> AIs;
   std::map<unsigned, Function *> Getter;
-  Type *PtrType = Type::getInt8PtrTy(F.getContext());
+  Type *PtrType = PointerType::getUnqual(F.getContext());
   std::vector<alias::ReferenceNode *> Graph;
   StructType *TransST = StructType::create(F.getContext());
   std::vector<Type *> Slots;

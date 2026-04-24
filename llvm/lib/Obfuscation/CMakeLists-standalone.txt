@@ -1,0 +1,65 @@
+cmake_minimum_required(VERSION 3.20)
+project(Obfuscation)
+
+# ---------- find LLVM ----------
+find_package(LLVM REQUIRED CONFIG)
+message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
+message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+
+list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
+include(AddLLVM)
+
+# ---------- compiler flags ----------
+separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
+add_definitions(${LLVM_DEFINITIONS_LIST})
+include_directories(${LLVM_INCLUDE_DIRS})
+# local headers (angle-bracket includes like <VMFlatten.h>)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# suppress MSVC-only header guard
+add_definitions(-D_MSC_VER_DISABLED)
+
+# ---------- sources ----------
+# CustomCC.cpp excluded: uses CallingConv::Obfu* (llvm-msvc-specific)
+set(OBFUSCATION_SOURCES
+    CryptoUtils.cpp
+    Substitution.cpp
+    BogusControlFlow.cpp
+    Utils.cpp
+    SplitBasicBlock.cpp
+    Flattening.cpp
+    IndirectCall.cpp
+    IndirectGlobalVars.cpp
+    StringObfuscation.cpp
+    MBAObfuscation.cpp
+    MBAMatrix.cpp
+    LinearMBA.cpp
+    ConstObfuscation.cpp
+    DataObfuscation.cpp
+    VMObfuscatorPass.cpp
+    VMFlatten.cpp
+    xVMProtect.cpp
+    CombineFunctions.cpp
+    FlatteningEnhanced.cpp
+    VariableRotation.cpp
+    Linearize.cpp
+    EasyCFG.cpp
+    AliasAccess.cpp
+    IndirectBranch.cpp
+    GlobalsEncryption.cpp
+    # CustomCC.cpp       # excluded: CallingConv::Obfu* not in stock LLVM
+    AntiIDA.cpp
+    CodePicPass.cpp
+    SmallVmpPass.cpp
+    Plugin.cpp
+)
+
+# ---------- build as a loadable LLVM pass plugin (.dylib / .so) ----------
+add_llvm_pass_plugin(Obfuscation
+    ${OBFUSCATION_SOURCES}
+    PARTIAL_SOURCES_INTENDED
+    ADDITIONAL_HEADER_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
+)

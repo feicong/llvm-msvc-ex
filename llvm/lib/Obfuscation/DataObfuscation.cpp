@@ -115,10 +115,11 @@ Value *DataObfuscator::genRandIndex(Instruction *I) {
           .getCallee());
   if (get_vm_fla_level()==7)
   {
-    genFunc->setAnnotationStrings("x-vm,x-full");
+    // setAnnotationStrings is llvm-msvc-specific; skip on stock LLVM
+    // genFunc->setAnnotationStrings("x-vm,x-full");
   }
   else {
-    genFunc->setAnnotationStrings("combine_func[grand]");
+    // genFunc->setAnnotationStrings("combine_func[grand]");
   }
   
   BasicBlock *entry = BasicBlock::Create(*CONTEXT, "entry", genFunc);

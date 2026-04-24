@@ -23,7 +23,8 @@
 #include <AliasAccess.h>
 #include <GlobalsEncryption.h>
 #include <IndirectBranch.h>
-#include <CustomCC.h>
+// CustomCC excluded: uses CallingConv::Obfu* (llvm-msvc-specific)
+// #include <CustomCC.h>
 #include <AntiIDA.h>
 #include <CodePicPass.h>
 #include <VMObfuscatorPass.h>
@@ -69,7 +70,8 @@ llvm::PassPluginLibraryInfo getObfuscationPluginInfo() {
           MPM.addPass(VariableRotationPass());
           MPM.addPass(AliasAccess());
           MPM.addPass(GlobalsEncryption());
-          MPM.addPass(CustomCC());
+          // CustomCC excluded: uses CallingConv::Obfu* (llvm-msvc-specific)
+          // MPM.addPass(CustomCC());
         });
 
         PB.registerOptimizerLastEPCallback([](llvm::ModulePassManager &MPM,

@@ -213,7 +213,8 @@ Function *xvmm::virtualization(Function &f) {
     if (ann.find("x-full") != std::string::npos) {
         ann+= "vm-fla,x-full,x-fla-enh";
     }
-  vm_func->setAnnotationStrings(ann.c_str());
+  // setAnnotationStrings is llvm-msvc-specific; skip on stock LLVM
+  // vm_func->setAnnotationStrings(ann.c_str());
   
   buildVMFunction(f, *vm_func, ops, new_mem_size, oparr_var, 256, remap,
                   alloca_map);

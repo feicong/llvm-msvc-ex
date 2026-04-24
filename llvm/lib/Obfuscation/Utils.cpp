@@ -9,6 +9,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Local.h" // For DemoteRegToStack and DemotePHIToStack
+#include <random>
 #include <sstream>
 
 using namespace llvm;
@@ -39,25 +40,37 @@ std::string readAnnotate(Function *f) {
         // Get the struct
         if (ConstantStruct *structAn =
                 dyn_cast<ConstantStruct>(ca->getOperand(i))) {
-          if (ConstantExpr *expr =
-                  dyn_cast<ConstantExpr>(structAn->getOperand(0))) {
-            // If it's a bitcast we can check if the annotation is concerning
-            // the current function
-            if (expr->getOpcode() == Instruction::BitCast &&
-                expr->getOperand(0) == f) {
-              ConstantExpr *note = cast<ConstantExpr>(structAn->getOperand(1));
-              // If it's a GetElementPtr, that means we found the variable
-              // containing the annotations
-              if (note->getOpcode() == Instruction::GetElementPtr) {
-                if (GlobalVariable *annoteStr =
-                        dyn_cast<GlobalVariable>(note->getOperand(0))) {
-                  if (ConstantDataSequential *data =
-                          dyn_cast<ConstantDataSequential>(
-                              annoteStr->getInitializer())) {
-                    if (data->isString()) {
-                      annotation += data->getAsString().lower() + " ";
-                    }
-                  }
+          // Get the function operand -- may be direct ptr (opaque pointers)
+          // or wrapped in a ConstantExpr bitcast (typed pointers)
+          Value *funcOp = structAn->getOperand(0);
+          Function *annotatedFunc = nullptr;
+
+          if (auto *expr = dyn_cast<ConstantExpr>(funcOp)) {
+            if (expr->getOpcode() == Instruction::BitCast)
+              annotatedFunc = dyn_cast<Function>(expr->getOperand(0));
+          } else {
+            annotatedFunc = dyn_cast<Function>(funcOp);
+          }
+
+          if (annotatedFunc && annotatedFunc == f) {
+            // Get annotation string -- may be direct GlobalVariable ptr
+            // or wrapped in a ConstantExpr GEP
+            Value *noteOp = structAn->getOperand(1);
+            GlobalVariable *annoteStr = nullptr;
+
+            if (auto *noteExpr = dyn_cast<ConstantExpr>(noteOp)) {
+              if (noteExpr->getOpcode() == Instruction::GetElementPtr)
+                annoteStr = dyn_cast<GlobalVariable>(noteExpr->getOperand(0));
+            } else {
+              annoteStr = dyn_cast<GlobalVariable>(noteOp);
+            }
+
+            if (annoteStr) {
+              if (ConstantDataSequential *data =
+                      dyn_cast<ConstantDataSequential>(
+                          annoteStr->getInitializer())) {
+                if (data->isString()) {
+                  annotation += data->getAsString().lower() + " ";
                 }
               }
             }
@@ -66,8 +79,7 @@ std::string readAnnotate(Function *f) {
       }
     }
   }
-  if(!f->getAnnotationStrings().empty())
-    annotation+=std::string(f->getAnnotationStrings().data());
+  // getAnnotationStrings is llvm-msvc-specific; skip on stock LLVM
   return annotation;
 }
 

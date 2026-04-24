@@ -64,7 +64,7 @@ bool FlaEnhPass::runOnFunction(Function *f) {
     return false;
   }
 
-  if (isMemberFunction(f) || f->hasCXXEH() || f->hasCXXSEH()) {
+  if (isMemberFunction(f) || f->hasPersonalityFn()) {
     return false;
   }
 

@@ -71,7 +71,7 @@ bool translateMemset(CallInst *ci) {
 
   FunctionType *ft = FunctionType::get(
       Type::getVoidTy(ctx),
-      {Type::getInt8PtrTy(ctx), Type::getInt32Ty(ctx), sizet}, false);
+      {PointerType::getUnqual(ctx), Type::getInt32Ty(ctx), sizet}, false);
   FunctionCallee fc = M->getOrInsertFunction("memset", ft);
 
   Builder.CreateCall(
@@ -92,7 +92,7 @@ bool translateMemcpy(CallInst *ci) {
 
   FunctionType *ft = FunctionType::get(
       Type::getVoidTy(ctx),
-      {Type::getInt8PtrTy(ctx), Type::getInt8PtrTy(ctx), sizet}, false);
+      {PointerType::getUnqual(ctx), PointerType::getUnqual(ctx), sizet}, false);
   FunctionCallee fc = M->getOrInsertFunction("memcpy", ft);
 
   Builder.CreateCall(fc, {ci->getOperand(0), ci->getOperand(1),
@@ -832,7 +832,7 @@ bool LinearizeX::runOnFunction(Function &F) {
       }*/
 
       size_t left = (*it)->size();
-      size_t num = std::min(left, 3 + (*rng)() % 3);
+      size_t num = std::min(left, (size_t)(3 + (*rng)() % 3));
       //			//dbgs() << "taking " << num << " instructions
       //from " << (*it)->getName() << "\n";
       auto ei = (*it)->begin();

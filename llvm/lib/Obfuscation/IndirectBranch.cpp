@@ -123,7 +123,7 @@ void IndirectBranch::process(Function &F) {
       Value *Index = IRB.CreateSelect(Cond, IRB.getInt32(TI.IndexWithinTable),
                                       IRB.getInt32(FI.IndexWithinTable));
       Value *Item = IRB.CreateLoad(
-          IRB.getInt8PtrTy(),
+          PointerType::getUnqual(IRB.getContext()),
           IRB.CreateGEP(AT, AddrTable, {IRB.getInt32(0), Index}));
 
       Value *Key =
@@ -131,7 +131,7 @@ void IndirectBranch::process(Function &F) {
                            IRB.getIntN(PtrSize * 8, FI.RandomKey));
       Value *Addr = IRB.CreateIntToPtr(
           IRB.CreateSub(IRB.CreatePtrToInt(Item, PtrValueType), Key),
-          IRB.getInt8PtrTy());
+          PointerType::getUnqual(IRB.getContext()));
 
       IndirectBrInst *IBR = IRB.CreateIndirectBr(Addr);
       IBR->addDestination(TrueBB);
@@ -141,13 +141,13 @@ void IndirectBranch::process(Function &F) {
       BasicBlock *BB = Br->getSuccessor(0);
       indirect_branch::IndirectBlockInfo &BI = Map[BB];
       Value *Item = IRB.CreateLoad(
-          IRB.getInt8PtrTy(),
+          PointerType::getUnqual(IRB.getContext()),
           IRB.CreateGEP(AT, AddrTable,
                         {IRB.getInt32(0), IRB.getInt32(BI.IndexWithinTable)}));
       Value *Key = IRB.getIntN(PtrSize * 8, BI.RandomKey);
       Value *Addr = IRB.CreateIntToPtr(
           IRB.CreateSub(IRB.CreatePtrToInt(Item, PtrValueType), Key),
-          IRB.getInt8PtrTy());
+          PointerType::getUnqual(IRB.getContext()));
       IndirectBrInst *IBR = IRB.CreateIndirectBr(Addr);
       IBR->addDestination(BB);
       Br->eraseFromParent();

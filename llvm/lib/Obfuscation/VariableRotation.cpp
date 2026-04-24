@@ -252,7 +252,7 @@ bool VariableRotation::runOnModule(Module &m) {
   Twine fname1 = Twine("shiftFuncitonI8");
 
   Function *shiftFunc =
-      createRotateFunc(&m, Type::getInt8PtrTy(m.getContext()), fname1);
+      createRotateFunc(&m, PointerType::getUnqual(m.getContext()), fname1);
 
   SetVector<Function *> shifts;
 

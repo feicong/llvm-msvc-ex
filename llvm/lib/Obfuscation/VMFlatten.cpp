@@ -281,7 +281,7 @@ bool VMFlat::DoFlatten(Function *f) {
   }
 
   if(isMemberFunction(f)||
-      f->hasCXXEH() || f->hasCXXSEH() )
+      f->hasPersonalityFn() )
   {
     //errs()<<"FLA-Function Name = "<<f->getName()<<"\r\n";
     if(VM_LEVEL<=4)
